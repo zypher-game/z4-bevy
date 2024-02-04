@@ -1,2 +1,2 @@
 # z4-bevy
-Z4 plugins for Bevy game engine
+Z4 plugin for Bevy game engine
