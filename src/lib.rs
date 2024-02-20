@@ -1,28 +1,26 @@
 use bevy::prelude::*;
 use serde_json::{from_str, to_string, Value};
-use tdn::types::rpc::rpc_request;
-use tdn_bevy::{Message, WsClientPlugin};
 
 pub type RoomId = u64;
-
-pub use tdn::prelude::PeerKey;
-pub use tdn_bevy::{RecvError, WsClient, WsConnection};
+pub use tdn_bevy::RecvError;
+pub use tdn_types::{primitives::PeerKey, rpc::rpc_request};
 
 pub struct Z4ClientPlugin;
 
 impl Plugin for Z4ClientPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(WsClientPlugin);
+        #[cfg(feature = "ws")]
+        app.add_plugins(tdn_bevy::ws::WsClientPlugin);
+
+        #[cfg(feature = "wasm")]
+        app.add_plugins(tdn_bevy::wasm::WasmClientPlugin);
     }
 }
 
-#[inline]
-pub fn ws_connect(commands: &mut Commands, url: &str, peer: &PeerKey, room: RoomId) {
-    // build the z4 connect init message
-    let msg = build_request("connect", vec![], peer, room);
-    WsClient.connect(commands, url, Some(msg));
-}
+#[cfg(any(feature = "ws", feature = "wasm"))]
+pub use tdn_bevy::Message;
 
+#[cfg(any(feature = "ws", feature = "wasm"))]
 #[inline]
 pub fn build_request(method: &str, v: Vec<Value>, peer: &PeerKey, room: RoomId) -> Message {
     let mut request = rpc_request(0, &method, v, room);
@@ -33,6 +31,7 @@ pub fn build_request(method: &str, v: Vec<Value>, peer: &PeerKey, room: RoomId) 
     Message::from(to_string(&request).unwrap_or("".to_owned()))
 }
 
+#[cfg(any(feature = "ws", feature = "wasm"))]
 #[inline]
 pub fn parse_response(msg: &Message) -> Result<(RoomId, String, Vec<Value>), String> {
     let msg = msg.to_text().unwrap_or("");
@@ -47,4 +46,30 @@ pub fn parse_response(msg: &Message) -> Result<(RoomId, String, Vec<Value>), Str
         Err(_e) => {}
     }
     Err(String::from("Invalid"))
+}
+
+#[cfg(feature = "ws")]
+pub mod ws {
+    use super::*;
+    pub use tdn_bevy::ws::{WsClient, WsConnection};
+
+    #[inline]
+    pub fn ws_connect(commands: &mut Commands, url: &str, peer: &PeerKey, room: RoomId) {
+        // build the z4 connect init message
+        let msg = build_request("connect", vec![], peer, room);
+        WsClient.connect(commands, url, Some(msg));
+    }
+}
+
+#[cfg(feature = "wasm")]
+pub mod wasm {
+    use super::*;
+    pub use tdn_bevy::wasm::{WsClient, WsConnection};
+
+    #[inline]
+    pub fn ws_connect(commands: &mut Commands, url: &str, peer: &PeerKey, room: RoomId) {
+        // build the z4 connect init message
+        let msg = build_request("connect", vec![], peer, room);
+        WsClient.connect(commands, url, Some(msg));
+    }
 }

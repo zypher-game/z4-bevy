@@ -1,5 +1,8 @@
 use bevy::prelude::*;
-use z4_bevy::{ws_connect, PeerKey, RecvError, WsConnection, Z4ClientPlugin};
+use z4_bevy::{
+    ws::{ws_connect, WsConnection},
+    PeerKey, RecvError, Z4ClientPlugin,
+};
 
 const MY_ROOM_ID: u64 = 1;
 const MY_SERVER: &str = "ws://127.0.0.1:8000";
