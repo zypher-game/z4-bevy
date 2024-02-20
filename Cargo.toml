@@ -5,4 +5,9 @@ edition = "2021"
 
 [dependencies]
 bevy = { version = "0.12", default-features = false }
-tdn-bevy = "0.1"
+serde_json = "1.0"
+tdn = { version = "0.10", default-features = false, features = ["multiple"] }
+tdn-bevy = { version = "0.1", path = "../../cympletech/tdn-bevy" }
+
+[dev-dependencies]
+bevy = "0.12"
