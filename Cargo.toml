@@ -11,10 +11,17 @@ wasm = ["tdn-bevy/wasm"]
 
 [dependencies]
 bevy = { version = "0.13", default-features = false }
+bevy-web3 = "0.1"
 serde = "1.0"
 serde_json = "1.0"
 tdn_types = { version = "0.10", default-features = false, features = ["multiple"] }
 tdn-bevy = { version = "0.1", default-features = false }
+z4-types = "0.1"
 
 [dev-dependencies]
 bevy = "0.13"
+
+[patch.crates-io]
+bevy-web3 = { path = "../bevy-web3" }
+tdn-bevy = { path = "../../cympletech/tdn-bevy" }
+z4-types = { path = "../z4/types" }
