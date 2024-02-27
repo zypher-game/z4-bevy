@@ -163,11 +163,27 @@ pub fn handle_room_status(mut market: ResMut<RoomMarket>, wallet: Res<EthWallet>
                         info!("{:?}", infos);
                         // (address[] memory, address, address, uint256, RoomStatus)
                         // (room.players, room.game, room.sequencer, room.site, room.status)
+                        let players: Vec<String> = infos[0]
+                            .clone()
+                            .into_array()
+                            .unwrap_or(vec![])
+                            .iter()
+                            .map(|v| {
+                                PeerId(
+                                    v.clone()
+                                        .into_address()
+                                        .unwrap_or(H160::zero())
+                                        .to_fixed_bytes(),
+                                )
+                                .to_hex()
+                            })
+                            .collect();
                         let game = infos[1].clone().into_address().unwrap_or(H160::zero());
                         let sequencer = infos[2].clone().into_address().unwrap_or(H160::zero());
                         if sequencer != H160::zero() {
                             let seq = PeerId(sequencer.to_fixed_bytes()).to_hex();
                             if let Some(waiting) = &mut market.waiting {
+                                waiting.players = players;
                                 waiting.sequencer = seq;
                             }
 
