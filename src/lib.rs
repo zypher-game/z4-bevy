@@ -18,6 +18,24 @@ pub const INIT_ROOM_MARKET_GROUP: RoomId = 100000;
 
 pub struct Z4ClientPlugin;
 
+#[derive(Component, Deref, DerefMut)]
+pub struct FetchRoomStatusTimer(Timer);
+
+impl FetchRoomStatusTimer {
+    pub fn seconds(seconds: f32) -> Self {
+        FetchRoomStatusTimer(Timer::from_seconds(seconds, TimerMode::Repeating))
+    }
+}
+
+#[derive(Component, Deref, DerefMut)]
+pub struct FetchRoomMarketTimer(Timer);
+
+impl FetchRoomMarketTimer {
+    pub fn seconds(seconds: f32) -> Self {
+        FetchRoomMarketTimer(Timer::from_seconds(seconds, TimerMode::Repeating))
+    }
+}
+
 impl Plugin for Z4ClientPlugin {
     fn build(&self, app: &mut App) {
         #[cfg(feature = "ws")]
@@ -104,23 +122,32 @@ pub fn handle_room_market(
 
 /// Fetch pending rooms
 #[cfg(feature = "wasm")]
-pub fn fetch_room_status(mut market: ResMut<RoomMarket>, wallet: Res<EthWallet>) {
+pub fn fetch_room_status(
+    time: Res<Time>,
+    mut query: Query<&mut FetchRoomStatusTimer>,
+    mut market: ResMut<RoomMarket>,
+    wallet: Res<EthWallet>,
+) {
     if market.waiting.is_some() {
-        let room_id = market.waiting.as_ref().unwrap().room;
-        // encode query
-        if market.contract.is_empty() {
-            let address = PeerId(
-                Network::from_chain_id(wallet.chain_id)
-                    .address("RoomMarket")
-                    .unwrap(),
-            );
-            market.contract = Contract::load(&address.to_hex(), ROOM_MARKET_ABI.as_bytes());
-        }
+        for mut timer in &mut query {
+            if timer.tick(time.delta()).just_finished() {
+                let room_id = market.waiting.as_ref().unwrap().room;
+                // encode query
+                if market.contract.is_empty() {
+                    let address = PeerId(
+                        Network::from_chain_id(wallet.chain_id)
+                            .address("RoomMarket")
+                            .unwrap(),
+                    );
+                    market.contract = Contract::load(&address.to_hex(), ROOM_MARKET_ABI.as_bytes());
+                }
 
-        let data = market
-            .contract
-            .encode("roomInfo", &[Token::Uint(room_id.into())]);
-        wallet.call(market.contract.address, "roomInfo".to_owned(), data);
+                let data = market
+                    .contract
+                    .encode("roomInfo", &[Token::Uint(room_id.into())]);
+                wallet.call(market.contract.address, "roomInfo".to_owned(), data);
+            }
+        }
     }
 }
 
@@ -192,11 +219,13 @@ pub fn parse_response(msg: &Message) -> Result<(RoomId, String, Vec<Value>), Str
     match from_str::<Value>(&msg) {
         Ok(mut values) => {
             info!("{}", values);
-            let gid = values["gid"].as_u64().unwrap(); // TODO unwrap
-            let method = values["method"].as_str().unwrap().to_owned();
-            // let server_id = values["peer"].as_str().unwrap(); TODO
-            let tmp = values["result"].take().as_array().unwrap().to_vec();
-            return Ok((gid, method, tmp));
+            if values.get("result").is_some() {
+                let gid = values["gid"].as_u64().unwrap_or(0);
+                let method = values["method"].as_str().unwrap_or("").to_owned();
+                // let server_id = values["peer"].as_str().unwrap(); TODO
+                let tmp = values["result"].take().as_array().unwrap().to_vec();
+                return Ok((gid, method, tmp));
+            }
         }
         Err(_e) => {}
     }
