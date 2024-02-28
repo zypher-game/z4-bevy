@@ -23,5 +23,4 @@ bevy = "0.13"
 
 [patch.crates-io]
 bevy-web3 = { path = "../bevy-web3" }
-tdn-bevy = { path = "../../cympletech/tdn-bevy" }
 z4-types = { path = "../z4/types" }
