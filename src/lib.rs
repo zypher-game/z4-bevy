@@ -52,14 +52,8 @@ impl Plugin for Z4ClientPlugin {
 pub struct PendingRoom {
     pub room: u64,
     pub players: Vec<String>,
-}
-
-#[derive(Debug, Clone, Deserialize, Default)]
-pub struct WaitingRoom {
-    pub room: u64,
-    pub players: Vec<String>,
-    pub sequencer: String,
-    pub http: String,
+    pub sequencer: Option<String>,
+    pub http: Option<String>,
 }
 
 /// Fetch pending rooms list from some node in RoomMarket
@@ -69,7 +63,7 @@ pub struct RoomMarket {
     pub url: String,
     pub game: String,
     pub rooms: Vec<PendingRoom>,
-    pub waiting: Option<WaitingRoom>,
+    pub waiting: Option<PendingRoom>,
 }
 
 /// Fetch pending rooms
@@ -160,7 +154,6 @@ pub fn handle_room_status(mut market: ResMut<RoomMarket>, wallet: Res<EthWallet>
                 match method.as_str() {
                     "roomInfo" => {
                         let infos = market.contract.decode("roomInfo", &bytes);
-                        info!("{:?}", infos);
                         // (address[] memory, address, address, uint256, RoomStatus)
                         // (room.players, room.game, room.sequencer, room.site, room.status)
                         let players: Vec<String> = infos[0]
@@ -184,7 +177,7 @@ pub fn handle_room_status(mut market: ResMut<RoomMarket>, wallet: Res<EthWallet>
                             let seq = PeerId(sequencer.to_fixed_bytes()).to_hex();
                             if let Some(waiting) = &mut market.waiting {
                                 waiting.players = players;
-                                waiting.sequencer = seq;
+                                waiting.sequencer = Some(seq);
                             }
 
                             //  call sequencer info
@@ -197,10 +190,9 @@ pub fn handle_room_status(mut market: ResMut<RoomMarket>, wallet: Res<EthWallet>
                     }
                     "sequencers" => {
                         let infos = market.contract.decode("sequencers", &bytes);
-                        info!("{:?}", infos);
-                        let server = infos[0].clone().into_string().unwrap_or(String::new());
+                        let http = infos[0].clone().into_string().unwrap_or(String::new());
                         if let Some(waiting) = &mut market.waiting {
-                            waiting.http = server;
+                            waiting.http = Some(http);
                         }
                     }
                     _ => {
