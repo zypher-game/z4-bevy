@@ -16,7 +16,6 @@ serde = "1.0"
 serde_json = "1.0"
 tdn_types = { version = "0.10", default-features = false, features = ["multiple"] }
 tdn-bevy = { version = "0.1", default-features = false }
-z4-types = "0.0.1"
 
 [dev-dependencies]
 bevy = "0.13"

@@ -2,7 +2,6 @@ use bevy::prelude::*;
 use bevy_web3::{Contract, EthWallet, RecvError as Web3RecvError, Token, H160};
 use serde::Deserialize;
 use serde_json::{from_str, json, to_string, Value};
-use z4_types::contracts::{Network, ROOM_MARKET_ABI};
 
 pub type RoomId = u64;
 pub use tdn_bevy::RecvError;
@@ -14,7 +13,7 @@ pub use tdn_types::{
 #[cfg(feature = "wasm")]
 use tdn_bevy::wasm::{HttpClient, HttpConnection, WasmClientPlugin};
 
-pub const INIT_ROOM_MARKET_GROUP: RoomId = 100000;
+pub const INIT_ROOM_MARKET_GROUP: RoomId = 4;
 
 pub struct Z4ClientPlugin;
 
@@ -53,7 +52,7 @@ pub struct PendingRoom {
     pub room: u64,
     pub players: Vec<String>,
     pub sequencer: Option<String>,
-    pub http: Option<String>,
+    pub websocket: Option<String>,
 }
 
 /// Fetch pending rooms list from some node in RoomMarket
@@ -119,7 +118,7 @@ pub fn handle_room_market(
 pub fn fetch_room_status(
     time: Res<Time>,
     mut query: Query<&mut FetchRoomStatusTimer>,
-    mut market: ResMut<RoomMarket>,
+    market: ResMut<RoomMarket>,
     wallet: Res<EthWallet>,
 ) {
     if market.waiting.is_some() {
@@ -128,12 +127,7 @@ pub fn fetch_room_status(
                 let room_id = market.waiting.as_ref().unwrap().room;
                 // encode query
                 if market.contract.is_empty() {
-                    let address = PeerId(
-                        Network::from_chain_id(wallet.chain_id)
-                            .address("RoomMarket")
-                            .unwrap(),
-                    );
-                    market.contract = Contract::load(&address.to_hex(), ROOM_MARKET_ABI.as_bytes());
+                    return;
                 }
 
                 let data = market
@@ -171,7 +165,6 @@ pub fn handle_room_status(mut market: ResMut<RoomMarket>, wallet: Res<EthWallet>
                                 .to_hex()
                             })
                             .collect();
-                        let game = infos[1].clone().into_address().unwrap_or(H160::zero());
                         let sequencer = infos[2].clone().into_address().unwrap_or(H160::zero());
                         if sequencer != H160::zero() {
                             let seq = PeerId(sequencer.to_fixed_bytes()).to_hex();
@@ -183,16 +176,16 @@ pub fn handle_room_status(mut market: ResMut<RoomMarket>, wallet: Res<EthWallet>
                             //  call sequencer info
                             let data = market.contract.encode(
                                 "sequencers",
-                                &[Token::Address(sequencer), Token::Address(game)],
+                                &[Token::Address(sequencer)],
                             );
                             wallet.call(market.contract.address, "sequencers".to_owned(), data);
                         }
                     }
                     "sequencers" => {
                         let infos = market.contract.decode("sequencers", &bytes);
-                        let http = infos[0].clone().into_string().unwrap_or(String::new());
+                        let ws = infos[1].clone().into_string().unwrap_or(String::new());
                         if let Some(waiting) = &mut market.waiting {
-                            waiting.http = Some(http);
+                            waiting.websocket = Some(ws);
                         }
                     }
                     _ => {
